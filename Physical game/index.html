@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Физикум — песочница</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Экран выбора темы -->
+  <div id="theme-screen" class="screen">
+    <h1>Физикум</h1>
+    <p class="subtitle">Выбери раздел физики для экспериментов</p>
+    <div class="theme-cards">
+      <div class="theme-card" data-theme="mechanics">
+        <div class="theme-icon">⚙️</div>
+        <h2>Механика</h2>
+        <p>Блоки, пружины, маятники, тела</p>
+      </div>
+      <div class="theme-card" data-theme="optics">
+        <div class="theme-icon">🔦</div>
+        <h2>Оптика</h2>
+        <p>Линзы, зеркала, источники света</p>
+      </div>
+      <div class="theme-card" data-theme="electricity">
+        <div class="theme-icon">⚡</div>
+        <h2>Электричество</h2>
+        <p>Резисторы, батареи, лампы, провода</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Экран песочницы -->
+  <div id="sandbox-screen" class="screen hidden">
+    <canvas id="canvas"></canvas>
+
+    <div id="topbar">
+      <button id="back-btn">← Назад</button>
+      <span id="theme-label"></span>
+      <span id="zoom-label">100%</span>
+    </div>
+
+    <aside id="palette"></aside>
+  </div>
+
+  <!-- Скрипты В КОНЦЕ body, в правильном порядке -->
+  <script src="js/elements/base.js"></script>
+  <script src="js/elements/mechanics.js"></script>
+  <script src="js/elements/optics.js"></script>
+  <script src="js/elements/electricity.js"></script>
+  <script src="js/registry.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

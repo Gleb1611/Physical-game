@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Физикум — Интерактивная физическая лаборатория</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Стартовый экран выбора лаборатории -->
+  <div id="theme-screen" class="screen">
+    <div class="hero-bg-grid"></div>
+    <div class="hero-content">
+      <div class="hero-badge">⚡ Виртуальный физический практикум • v2.5</div>
+      <h1>ФИЗИКУМ</h1>
+      <p class="subtitle">
+        Интерактивная среда моделирования физических процессов: динамика твёрдых тел и колебаний,
+        геометрическая и волновая оптика, расчёт электрических цепей постоянного тока
+      </p>
+
+      <div class="theme-cards">
+        <div class="theme-card" data-theme="mechanics">
+          <div class="card-top">
+            <div class="theme-icon-wrap mechanics-glow">⚙️</div>
+            <span class="card-tag">Динамика и законы сохранения</span>
+          </div>
+          <h2>Механика</h2>
+          <p>Движение в поле тяжести (Земля, Луна, Марс), наклонные плоскости, трение Кулона, пружины Гука, маятники и упругие удары.</p>
+          <div class="card-footer">
+            <span>3 лабораторные работы</span>
+            <span class="theme-cta">Запустить →</span>
+          </div>
+        </div>
+
+        <div class="theme-card" data-theme="optics">
+          <div class="card-top">
+            <div class="theme-icon-wrap optics-glow">🔦</div>
+            <span class="card-tag">Геометрическая оптика и спектр</span>
+          </div>
+          <h2>Оптика</h2>
+          <p>Трассировка лучей в реальном времени, собирающие и рассеивающие линзы, сферические зеркала, закон Снеллиуса и дисперсия в призме.</p>
+          <div class="card-footer">
+            <span>3 лабораторные работы</span>
+            <span class="theme-cta">Запустить →</span>
+          </div>
+        </div>
+
+        <div class="theme-card" data-theme="electricity">
+          <div class="card-top">
+            <div class="theme-icon-wrap electricity-glow">⚡</div>
+            <span class="card-tag">Законы Ома и Кирхгофа</span>
+          </div>
+          <h2>Электричество</h2>
+          <p>Интерактивная сборка схем, узловой расчёт потенциалов, источники ЭДС, резисторы, лампы с перегрузкой, амперметры и вольтметры.</p>
+          <div class="card-footer">
+            <span>3 лабораторные работы</span>
+            <span class="theme-cta">Запустить →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Рабочее пространство лаборатории (Dock Studio Layout) -->
+  <div id="sandbox-screen" class="app-shell hidden">
+
+    <!-- Верхняя панель инструментов -->
+    <header id="topbar">
+      <div class="topbar-left">
+        <button id="back-btn" class="brand-btn" title="На главный экран">
+          <span class="brand-dot"></span>
+          <span class="brand-name">ФИЗИКУМ</span>
+        </button>
+
+        <nav class="theme-tabs">
+          <button class="theme-tab" data-theme="mechanics">⚙️ Механика</button>
+          <button class="theme-tab" data-theme="optics">🔦 Оптика</button>
+          <button class="theme-tab" data-theme="electricity">⚡ Электричество</button>
+        </nav>
+      </div>
+
+      <!-- Центр: Управление симуляцией -->
+      <div class="topbar-center">
+        <div class="transport-group">
+          <button id="play-btn" class="tb-btn primary" title="Старт / Пауза (Пробел)">⏸ Пауза</button>
+          <button id="step-btn" class="tb-btn" title="Один шаг симуляции (S)">⏭ Шаг</button>
+          <button id="reset-btn" class="tb-btn" title="Сбросить к начальному состоянию (R)">↺ Сброс</button>
+        </div>
+
+        <div class="speed-pills" title="Скорость течения времени">
+          <button class="speed-pill" data-speed="0.25">0.25×</button>
+          <button class="speed-pill" data-speed="0.5">0.5×</button>
+          <button class="speed-pill active" data-speed="1">1×</button>
+          <button class="speed-pill" data-speed="2">2×</button>
+        </div>
+      </div>
+
+      <!-- Право: Опции вида и сцены -->
+      <div class="topbar-right">
+        <button id="vectors-btn" class="tb-btn active" title="Показывать векторы сил, фокусы и подписи (V)">📐 Векторы</button>
+        <button id="snap-btn" class="tb-btn" title="Привязка координат к сетке (G)">🧲 Сетка</button>
+        <button id="clear-btn" class="tb-btn danger" title="Очистить холст">🗑 Очистить</button>
+      </div>
+    </header>
+
+    <!-- Основная рабочая область: Левый док + Центральный холст + Правый док -->
+    <div class="workspace-body">
+
+      <!-- Левая боковая панель: Приборы и Готовые опыты -->
+      <aside id="left-sidebar">
+        <div class="sidebar-block">
+          <div class="section-header">
+            <span>🧰 Приборы и элементы</span>
+            <span class="section-hint">Клик или перетащи</span>
+          </div>
+          <div id="palette-items" class="palette-list"></div>
+        </div>
+
+        <div class="sidebar-block">
+          <div class="section-header">
+            <span>🧪 Лабораторные опыты</span>
+          </div>
+          <div id="presets-list" class="presets-list"></div>
+        </div>
+
+        <div class="sidebar-block sidebar-help">
+          <div class="section-header"><span>⌨️ Управление</span></div>
+          <div class="shortcut-list">
+            <div><kbd>ЛКМ</kbd> Двигать объект / клемму</div>
+            <div><kbd>Кружок сверху</kbd> Вращать (+<kbd>Shift</kbd> 15°)</div>
+            <div><kbd>ПКМ</kbd> / <kbd>Колесо</kbd> Камера и зум</div>
+            <div><kbd>Пробел</kbd> Пауза • <kbd>R</kbd> Сброс</div>
+            <div><kbd>Ctrl+D</kbd> Копия • <kbd>Del</kbd> Удалить</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Центральный холст -->
+      <main id="viewport">
+        <canvas id="canvas"></canvas>
+
+        <!-- Верхний левый HUD: статус и подсказка -->
+        <div class="viewport-hud-top">
+          <div id="sim-status-badge" class="status-pill running">
+            <span class="pulse-dot"></span>
+            <span id="sim-status-text">Симуляция активна</span>
+          </div>
+          <div id="context-hint" class="context-hint">Выберите объект для настройки параметров</div>
+        </div>
+
+        <!-- Нижний левый HUD: управление камерой -->
+        <div class="viewport-hud-bottom">
+          <button id="zoom-out-btn" class="hud-icon-btn" title="Отдалить">−</button>
+          <button id="zoom-reset-btn" class="hud-zoom-val" title="Сбросить камеру в центр">100%</button>
+          <button id="zoom-in-btn" class="hud-icon-btn" title="Приблизить">+</button>
+          <button id="center-cam-btn" class="hud-icon-btn" title="Центрировать сцену">⌖</button>
+        </div>
+
+        <!-- Всплывающее уведомление -->
+        <div id="status-toast" class="status-toast hidden"></div>
+      </main>
+
+      <!-- Правая боковая панель: Инспектор + Телеметрия + Осциллограф -->
+      <aside id="right-sidebar">
+
+        <!-- Блок 1: Инспектор выбранного объекта (или параметры среды, если ничего не выбрано) -->
+        <div class="sidebar-block inspector-block">
+          <div class="inspector-header">
+            <div>
+              <span id="insp-badge" class="insp-badge">СРЕДА</span>
+              <h3 id="insp-title">Параметры лаборатории</h3>
+            </div>
+            <button id="insp-close" class="icon-btn hidden" title="Снять выделение (Esc)">✕</button>
+          </div>
+
+          <!-- Быстрые действия над выбранным объектом -->
+          <div id="insp-actions" class="inspector-actions hidden">
+            <button id="insp-dup-btn" class="mini-btn" title="Дублировать (Ctrl+D)">⧉ Копия</button>
+            <button id="insp-del-btn" class="mini-btn danger" title="Удалить (Delete)">🗑 Удалить</button>
+          </div>
+
+          <div id="insp-body" class="insp-controls"></div>
+        </div>
+
+        <!-- Блок 2: Живые показания датчиков -->
+        <div class="sidebar-block">
+          <div class="section-header">
+            <span>📊 Показания приборов</span>
+          </div>
+          <div id="insp-telemetry" class="telemetry-grid"></div>
+        </div>
+
+        <!-- Блок 3: График в реальном времени (встроен в док, ничего не перекрывает) -->
+        <div class="sidebar-block chart-block">
+          <div class="chart-header">
+            <span id="chart-title">📈 Осциллограф</span>
+            <div id="chart-legend" class="chart-legend"></div>
+          </div>
+          <canvas id="chart-canvas" width="278" height="120"></canvas>
+        </div>
+
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- Скрипты -->
+  <script src="js/elements/base.js"></script>
+  <script src="js/elements/mechanics.js"></script>
+  <script src="js/elements/optics.js"></script>
+  <script src="js/elements/electricity.js"></script>
+  <script src="js/registry.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

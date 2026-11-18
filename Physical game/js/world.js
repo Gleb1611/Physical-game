@@ -58,7 +58,7 @@ class World {
   hitTest(wx, wy) {
     for (let i = this.elements.length - 1; i >= 0; i--) {
       const el = this.elements[i];
-      if (el instanceof Wire || el instanceof ForceZone) continue;
+      if (el.ghost || el instanceof Wire || el instanceof ForceZone) continue;
       if (el.containsPoint(wx, wy)) return el;
     }
     for (let i = this.elements.length - 1; i >= 0; i--) {
@@ -103,10 +103,6 @@ class World {
   }
 
   render(ctx, cameraScale = 1) {
-    if (this.theme === 'optics') {
-      OpticsEngine.traceAndRender(ctx, this);
-    }
-
     for (const el of this.elements) {
       if (el instanceof ForceZone) el.render(ctx, this);
     }

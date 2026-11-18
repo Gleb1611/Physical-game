@@ -6,6 +6,8 @@
 const viewportEl = document.getElementById('viewport');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+const rayCanvas = document.getElementById('ray-canvas');
+const rayCtx = rayCanvas.getContext('2d');
 
 const themeScreen = document.getElementById('theme-screen');
 const sandboxScreen = document.getElementById('sandbox-screen');
@@ -43,6 +45,29 @@ const chartLegend = document.getElementById('chart-legend');
 const chartCanvas = document.getElementById('chart-canvas');
 const chartCtx = chartCanvas.getContext('2d');
 const statusToast = document.getElementById('status-toast');
+
+// Уровни
+const levelsBtn = document.getElementById('levels-btn');
+const levelsCtaCount = document.getElementById('levels-cta-count');
+const levelsScreen = document.getElementById('levels-screen');
+const levelsGroupsEl = document.getElementById('levels-groups');
+const levelsProgressEl = document.getElementById('levels-progress');
+const levelsHomeBtn = document.getElementById('levels-home-btn');
+const levelsBackBtn = document.getElementById('levels-back-btn');
+const levelPanel = document.getElementById('level-panel');
+const levelKicker = document.getElementById('level-kicker');
+const levelTitleEl = document.getElementById('level-title');
+const levelBriefEl = document.getElementById('level-brief');
+const goalListEl = document.getElementById('goal-list');
+const levelHintBtn = document.getElementById('level-hint-btn');
+const levelHintEl = document.getElementById('level-hint');
+const levelRestartBtn = document.getElementById('level-restart-btn');
+const presetsBlock = document.getElementById('presets-block');
+const levelComplete = document.getElementById('level-complete');
+const levelCompleteText = document.getElementById('level-complete-text');
+const levelNextBtn = document.getElementById('level-next-btn');
+const levelListBtn = document.getElementById('level-list-btn');
+const levelStayBtn = document.getElementById('level-stay-btn');
 
 const world = new World();
 
@@ -131,6 +156,8 @@ function resizeCanvas() {
   if (rect.width > 0 && rect.height > 0) {
     canvas.width = Math.round(rect.width);
     canvas.height = Math.round(rect.height);
+    rayCanvas.width = canvas.width;
+    rayCanvas.height = canvas.height;
   }
 }
 window.addEventListener('resize', resizeCanvas);
@@ -154,7 +181,7 @@ function drawGrid() {
   const endY = Math.ceil(bottomRight.y / step) * step;
 
   ctx.lineWidth = 1;
-  ctx.strokeStyle = '#111622';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
   ctx.beginPath();
   for (let x = startX; x <= endX; x += step) {
     const sx = camera.worldToScreen(x, 0).x;
@@ -174,7 +201,7 @@ function drawGrid() {
   const bStartY = Math.floor(topLeft.y / bigStep) * bigStep;
   const bEndY = Math.ceil(bottomRight.y / bigStep) * bigStep;
 
-  ctx.strokeStyle = '#192132';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
   ctx.beginPath();
   for (let x = bStartX; x <= bEndX; x += bigStep) {
     const sx = camera.worldToScreen(x, 0).x;
@@ -189,7 +216,7 @@ function drawGrid() {
   ctx.stroke();
 
   const origin = camera.worldToScreen(0, 0);
-  ctx.strokeStyle = 'rgba(59, 130, 246, 0.22)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.24)';
   ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.moveTo(0, origin.y);
@@ -200,17 +227,31 @@ function drawGrid() {
 }
 
 // ---------- Рендер сцены ----------
+function applyCameraTransform(c) {
+  c.translate(canvas.width / 2, canvas.height / 2);
+  c.scale(camera.scale, camera.scale);
+  c.translate(-camera.x, -camera.y);
+}
+
 function draw() {
-  ctx.fillStyle = '#080b11';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawGrid();
 
   ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.scale(camera.scale, camera.scale);
-  ctx.translate(-camera.x, -camera.y);
+  applyCameraTransform(ctx);
   world.render(ctx, camera.scale);
   ctx.restore();
+
+  // Лучи света рисуются на отдельном слое: интерфейс чёрно-белый,
+  // а цвет луча несёт физический смысл (длина волны), поэтому его сохраняем.
+  rayCtx.clearRect(0, 0, rayCanvas.width, rayCanvas.height);
+  if (currentTheme === 'optics') {
+    rayCtx.save();
+    applyCameraTransform(rayCtx);
+    OpticsEngine.traceAndRender(rayCtx, world);
+    rayCtx.restore();
+  }
 }
 
 // ---------- Переключение разделов и пресетов ----------
@@ -221,6 +262,8 @@ let draggedPaletteItem = null;
 let infoCardOpen = true;
 
 function openTheme(theme) {
+  leaveLevelMode();
+  levelsScreen.classList.add('hidden');
   currentTheme = theme;
   world.theme = theme;
   themeScreen.classList.add('hidden');
@@ -254,9 +297,11 @@ document.querySelectorAll('.theme-tab').forEach((tab) => {
 });
 
 backBtn.addEventListener('click', () => {
+  leaveLevelMode();
   sandboxScreen.classList.add('hidden');
   themeScreen.classList.remove('hidden');
   currentTheme = null;
+  refreshLevelsUi();
 });
 
 // Блок «что это / как работает / зачем нужен» (общий для палитры и инспектора)
@@ -271,9 +316,18 @@ function buildInfoHtml(type) {
   `;
 }
 
-function buildPalette(theme) {
+function buildPalette(theme, allowedTypes = null) {
   paletteItemsEl.innerHTML = '';
-  const items = REGISTRY[theme] || [];
+  let items = REGISTRY[theme] || [];
+  if (allowedTypes) {
+    items = items.filter((item) => allowedTypes.includes(item.type));
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'palette-empty';
+      empty.textContent = 'В этом уровне новых приборов нет: меняй параметры уже стоящих элементов.';
+      paletteItemsEl.appendChild(empty);
+    }
+  }
 
   items.forEach((item) => {
     const entry = document.createElement('div');
@@ -417,6 +471,12 @@ stepBtn.addEventListener('click', () => {
 resetBtn.addEventListener('click', () => {
   world.restoreAllStates();
   chartHistory = [];
+  if (levelState) {
+    resetLevelState(levelState);
+    levelState.announced = false;
+    levelComplete.classList.add('hidden');
+    updateGoalList();
+  }
   syncInspector();
   showToast('Возвращено к начальному состоянию');
 });
@@ -442,6 +502,11 @@ snapBtn.addEventListener('click', () => {
 });
 
 clearBtn.addEventListener('click', () => {
+  if (levelState) {
+    startLevel(levelState.level);
+    showToast('Уровень начат заново');
+    return;
+  }
   world.clear();
   chartHistory = [];
   activePresetId = null;
@@ -524,7 +589,7 @@ function syncInspector() {
   inspBadge.textContent = sel.type.toUpperCase();
   inspTitle.textContent = sel.label;
   inspCloseBtn.classList.remove('hidden');
-  inspActions.classList.remove('hidden');
+  inspActions.classList.toggle('hidden', !!sel.locked);
   contextHint.textContent = `Выбран: ${sel.label} (Del — удалить, Ctrl+D — дублировать)`;
 
   if (ELEMENT_INFO[sel.type]) {
@@ -571,7 +636,14 @@ function syncInspector() {
     inspBody.appendChild(row);
   }
 
-  const schema = sel.getPropertySchema();
+  if (sel.propsLocked) {
+    const note = document.createElement('div');
+    note.className = 'prop-note';
+    note.textContent = 'Параметры этого элемента закреплены условием уровня.';
+    inspBody.appendChild(note);
+  }
+
+  const schema = sel.propsLocked ? [] : sel.getPropertySchema();
   for (const field of schema) {
     const curVal = sel.properties[field.key];
     const row = document.createElement('div');
@@ -708,6 +780,10 @@ inspCloseBtn.addEventListener('click', () => {
 inspDupBtn.addEventListener('click', () => {
   const sel = world.selected;
   if (!sel) return;
+  if (sel.locked) {
+    showToast('Этот элемент закреплён уровнем');
+    return;
+  }
   const copy = sel.clone();
   world.add(copy);
   world.select(copy);
@@ -718,6 +794,10 @@ inspDupBtn.addEventListener('click', () => {
 inspDelBtn.addEventListener('click', () => {
   const sel = world.selected;
   if (!sel) return;
+  if (sel.locked) {
+    showToast('Этот элемент закреплён уровнем');
+    return;
+  }
   world.remove(sel);
   syncInspector();
   showToast('Объект удалён');
@@ -785,7 +865,7 @@ canvas.addEventListener('mousedown', (e) => {
     syncInspector();
 
     // Если это провод и кликнули по его концу — переподключаем конец провода
-    if (hit instanceof Wire) {
+    if (hit instanceof Wire && !hit.locked) {
       const endTag = hit.hitEndpoint(w.x, w.y, 14 / camera.scale);
       if (endTag) {
         mode = 'drag-wire-end';
@@ -832,7 +912,7 @@ window.addEventListener('mousemove', (e) => {
       canvas.className = 'hover-rotate';
     } else if (currentTheme === 'electricity' && world.findPortAt(w.x, w.y, 14 / camera.scale)) {
       canvas.className = 'hover-port';
-    } else if (world.hitTest(w.x, w.y)) {
+    } else if (world.hitTest(w.x, w.y) && !world.hitTest(w.x, w.y).locked) {
       canvas.className = 'hover-item';
     } else {
       canvas.className = '';
@@ -849,7 +929,7 @@ window.addEventListener('mousemove', (e) => {
     const dy = e.clientY - panStart.y;
     camera.x = camStart.x - dx / camera.scale;
     camera.y = camStart.y - dy / camera.scale;
-  } else if (mode === 'drag-el' && activeEl && hasMovedDuringDrag) {
+  } else if (mode === 'drag-el' && activeEl && hasMovedDuringDrag && !activeEl.locked) {
     let nx = w.x - dragOffset.x;
     let ny = w.y - dragOffset.y;
     if (world.snapToGrid) {
@@ -989,7 +1069,9 @@ window.addEventListener('keydown', (e) => {
     syncInspector();
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     const sel = world.selected;
-    if (sel) {
+    if (sel && sel.locked) {
+      showToast('Этот элемент закреплён уровнем');
+    } else if (sel) {
       world.remove(sel);
       syncInspector();
       showToast('Объект удалён');
@@ -1012,27 +1094,21 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- Осциллограф в реальном времени ----------
+function legendItem(cls, text) {
+  return `<span class="legend-dot"><span class="legend-swatch ${cls}"></span>${text}</span>`;
+}
+
 function setupChartLegend(theme) {
   chartHistory = [];
   if (theme === 'mechanics') {
     chartTitle.textContent = '📈 Энергия (Дж)';
-    chartLegend.innerHTML = `
-      <span class="legend-dot"><span class="legend-swatch" style="background:#22c55e"></span>Ek</span>
-      <span class="legend-dot"><span class="legend-swatch" style="background:#f59e0b"></span>Ep</span>
-      <span class="legend-dot"><span class="legend-swatch" style="background:#38bdf8"></span>Eполн</span>
-    `;
+    chartLegend.innerHTML = legendItem('', 'Ek') + legendItem('ls-dash', 'Ep') + legendItem('ls-dot', 'Eполн');
   } else if (theme === 'optics') {
     chartTitle.textContent = '📈 Поток лучей';
-    chartLegend.innerHTML = `
-      <span class="legend-dot"><span class="legend-swatch" style="background:#38bdf8"></span>Лучей</span>
-      <span class="legend-dot"><span class="legend-swatch" style="background:#f472b6"></span>Экран</span>
-    `;
+    chartLegend.innerHTML = legendItem('', 'Лучей') + legendItem('ls-dash', 'Экран');
   } else if (theme === 'electricity') {
     chartTitle.textContent = '📈 Мощность и ток';
-    chartLegend.innerHTML = `
-      <span class="legend-dot"><span class="legend-swatch" style="background:#fde047"></span>P (Вт)</span>
-      <span class="legend-dot"><span class="legend-swatch" style="background:#38bdf8"></span>I×10 (А)</span>
-    `;
+    chartLegend.innerHTML = legendItem('', 'P (Вт)') + legendItem('ls-dash', 'I×10 (А)');
   }
 }
 
@@ -1097,18 +1173,19 @@ function renderChart() {
   }
   maxVal *= 1.15;
 
-  const colors =
-    currentTheme === 'mechanics'
-      ? ['#22c55e', '#f59e0b', '#38bdf8']
-      : currentTheme === 'optics'
-      ? ['#38bdf8', '#f472b6', null]
-      : ['#fde047', '#38bdf8', null];
+  // Чёрно-белый стиль: линии различаются начертанием
+  const styles = [
+    { col: '#ffffff', dash: [] },
+    { col: '#ffffff', dash: [6, 4] },
+    { col: '#ffffff', dash: [2, 3] },
+  ];
+  const used = currentTheme === 'mechanics' ? 3 : 2;
 
   ['a', 'b', 'c'].forEach((key, idx) => {
-    const col = colors[idx];
-    if (!col) return;
-    chartCtx.strokeStyle = col;
-    chartCtx.lineWidth = 2;
+    if (idx >= used) return;
+    chartCtx.strokeStyle = styles[idx].col;
+    chartCtx.setLineDash(styles[idx].dash);
+    chartCtx.lineWidth = idx === 2 ? 2.4 : 1.8;
     chartCtx.beginPath();
     for (let i = 0; i < chartHistory.length; i++) {
       const x = (i / 129) * w;
@@ -1119,7 +1196,166 @@ function renderChart() {
     }
     chartCtx.stroke();
   });
+  chartCtx.setLineDash([]);
 }
+
+// ============================================================
+//  Режим уровней
+// ============================================================
+const THEME_NAMES = { mechanics: 'Механика', optics: 'Оптика', electricity: 'Электричество' };
+let levelState = null;
+
+LevelProgress.load();
+
+function refreshLevelsUi() {
+  const total = LEVELS.length;
+  const done = LevelProgress.doneCount();
+  levelsCtaCount.textContent = `${done} / ${total}`;
+  levelsProgressEl.textContent = `Пройдено ${done} из ${total}`;
+
+  levelsGroupsEl.innerHTML = '';
+  let number = 0;
+  for (const theme of ['mechanics', 'optics', 'electricity']) {
+    const list = LEVELS.filter((l) => l.theme === theme);
+    if (list.length === 0) continue;
+    const doneInGroup = list.filter((l) => LevelProgress.isDone(l.id)).length;
+
+    const group = document.createElement('section');
+    group.className = 'levels-group';
+    group.innerHTML = `<div class="levels-group-title"><span>${THEME_NAMES[theme]}</span><span>${doneInGroup} / ${list.length}</span></div>`;
+    const grid = document.createElement('div');
+    grid.className = 'level-grid';
+
+    for (const level of list) {
+      number++;
+      const card = document.createElement('button');
+      card.className = 'level-card' + (LevelProgress.isDone(level.id) ? ' done' : '');
+      card.innerHTML = `
+        <span class="level-num">УРОВЕНЬ ${String(number).padStart(2, '0')}</span>
+        <h3>${level.title}</h3>
+        <p>${level.short}</p>
+        <span class="level-check">✓</span>
+      `;
+      card.addEventListener('click', () => startLevel(level));
+      grid.appendChild(card);
+    }
+    group.appendChild(grid);
+    levelsGroupsEl.appendChild(group);
+  }
+}
+
+function openLevelsScreen() {
+  leaveLevelMode();
+  sandboxScreen.classList.add('hidden');
+  themeScreen.classList.add('hidden');
+  currentTheme = null;
+  refreshLevelsUi();
+  levelsScreen.classList.remove('hidden');
+}
+
+function leaveLevelMode() {
+  levelState = null;
+  sandboxScreen.classList.remove('level-mode');
+  levelPanel.classList.add('hidden');
+  presetsBlock.classList.remove('hidden');
+  levelComplete.classList.add('hidden');
+  clearBtn.textContent = '🗑 Очистить';
+}
+
+function startLevel(level) {
+  levelsScreen.classList.add('hidden');
+  themeScreen.classList.add('hidden');
+  sandboxScreen.classList.remove('hidden');
+  sandboxScreen.classList.add('level-mode');
+  presetsBlock.classList.add('hidden');
+  levelPanel.classList.remove('hidden');
+  clearBtn.textContent = '↻ Заново';
+
+  currentTheme = level.theme;
+  world.theme = level.theme;
+  world.gravity = 9.81;
+  world.timeScale = 1;
+  document.querySelectorAll('.speed-pill').forEach((p) => p.classList.toggle('active', p.dataset.speed === '1'));
+
+  resizeCanvas();
+  camera.reset();
+  buildPalette(level.theme, level.allowed || []);
+  setupChartLegend(level.theme);
+
+  world.clear();
+  chartHistory = [];
+  const refs = level.setup(world);
+  world.saveAllStates();
+  world.select(null);
+
+  levelState = createLevelState(level, refs);
+  levelState.announced = false;
+
+  const index = LEVELS.indexOf(level) + 1;
+  levelKicker.textContent = `${THEME_NAMES[level.theme]} · уровень ${index} из ${LEVELS.length}`;
+  levelTitleEl.textContent = level.title;
+  levelBriefEl.textContent = level.brief;
+  levelHintEl.textContent = level.hint;
+  levelHintEl.classList.add('hidden');
+  levelComplete.classList.add('hidden');
+  goalListEl.innerHTML = '';
+  level.goals.forEach((g) => {
+    const li = document.createElement('li');
+    li.className = 'goal-item';
+    li.innerHTML = `<span class="goal-box"></span><span>${g.text}</span>`;
+    goalListEl.appendChild(li);
+  });
+
+  setRunning(level.running !== false);
+  syncInspector();
+  contextHint.textContent = level.theme === 'mechanics' ? 'Соберите установку и нажмите «Старт»' : contextHint.textContent;
+}
+
+function updateGoalList() {
+  if (!levelState) return;
+  [...goalListEl.children].forEach((li, i) => {
+    const ok = !!levelState.ok[i];
+    li.classList.toggle('ok', ok);
+    li.querySelector('.goal-box').textContent = ok ? '✓' : '';
+  });
+}
+
+function checkLevel(dt) {
+  const changed = evaluateLevel(levelState, world, dt);
+  if (changed) updateGoalList();
+
+  if (levelState.done && !levelState.announced) {
+    levelState.announced = true;
+    LevelProgress.markDone(levelState.level.id);
+    const idx = LEVELS.indexOf(levelState.level);
+    const hasNext = idx >= 0 && idx < LEVELS.length - 1;
+    levelNextBtn.classList.toggle('hidden', !hasNext);
+    levelCompleteText.textContent = `«${levelState.level.title}» выполнен. Пройдено ${LevelProgress.doneCount()} из ${LEVELS.length}.`;
+    levelComplete.classList.remove('hidden');
+  }
+}
+
+levelsBtn.addEventListener('click', openLevelsScreen);
+levelsHomeBtn.addEventListener('click', () => {
+  levelsScreen.classList.add('hidden');
+  themeScreen.classList.remove('hidden');
+  refreshLevelsUi();
+});
+levelsBackBtn.addEventListener('click', openLevelsScreen);
+levelHintBtn.addEventListener('click', () => levelHintEl.classList.toggle('hidden'));
+levelRestartBtn.addEventListener('click', () => {
+  if (levelState) startLevel(levelState.level);
+});
+levelStayBtn.addEventListener('click', () => levelComplete.classList.add('hidden'));
+levelListBtn.addEventListener('click', openLevelsScreen);
+levelNextBtn.addEventListener('click', () => {
+  if (!levelState) return;
+  const next = LEVELS[LEVELS.indexOf(levelState.level) + 1];
+  if (next) startLevel(next);
+  else openLevelsScreen();
+});
+
+refreshLevelsUi();
 
 // ---------- Главный цикл симуляции (60 FPS) ----------
 let lastTime = performance.now();
@@ -1133,6 +1369,7 @@ function loop(now) {
     const draggedInSim = (mode === 'drag-el' || mode === 'drag-bob') && hasMovedDuringDrag ? activeEl : null;
     world.update(dt, draggedInSim);
     draw();
+    if (levelState) checkLevel(dt);
 
     frameCounter++;
     if (frameCounter % 3 === 0) {

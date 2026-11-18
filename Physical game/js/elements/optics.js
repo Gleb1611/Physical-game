@@ -497,16 +497,7 @@ class OpticalScreen extends Element {
     ctx.stroke();
     ctx.restore();
 
-    for (const h of this.hits) {
-      ctx.save();
-      ctx.fillStyle = h.color;
-      ctx.shadowColor = h.color;
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(h.x, h.y, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
+    // Точки попадания лучей рисует OpticsEngine на слое лучей (они сохраняют цвет)
   }
 }
 
@@ -977,6 +968,19 @@ const OpticsEngine = {
       ctx.moveTo(seg.x1, seg.y1);
       ctx.lineTo(seg.x2, seg.y2);
       ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    for (const sc of screens) {
+      for (const h of sc.hits) {
+        ctx.fillStyle = h.color;
+        ctx.shadowColor = h.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.restore();
   },
